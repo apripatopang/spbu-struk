@@ -17,18 +17,57 @@ Route::get('/', function (Request $r) {
     $pompa       = $r->input('pompa', null);     // kalau mau pisah pulau/pompa, isi sendiri
     $operator    = $r->input('operator', 'OPERATOR');
 
-    $jenis       = $r->input('jenis', 'PERTALITE');
-    $liter       = (float) $r->input('liter', 10.00);
+    $jenis       = strtoupper(trim($r->input('jenis', 'PERTALITE')));
 
-    // Harga per liter
-    $harga_non   = (int) $r->input('harga_non', 10000);   // non-subsidi
-    $subs_liter  = (int) $r->input('subs_liter', 0);      // subsidi per liter
-    $harga_jual  = (int) ($harga_non - $subs_liter);      // hasil akhir di struk
+    // Preset resmi sesuai daftar screenshot pengguna (Wilayah Riau):
+    if (str_contains($jenis, 'PERTALITE')) {
+        $harga_non  = 13500;
+        $subs_liter = 3500;
+    } elseif (str_contains($jenis, 'SOLAR')) {
+        $harga_non  = 11800;
+        $subs_liter = 5000;
+    } elseif (str_contains($jenis, 'TURBO')) {
+        $harga_non  = 19100;
+        $subs_liter = 0;
+    } elseif (str_contains($jenis, 'PERTAMAX')) {
+        $harga_non  = 16650;
+        $subs_liter = 0;
+    } elseif (str_contains($jenis, 'DEXLITE')) {
+        $harga_non  = 20550;
+        $subs_liter = 0;
+    } elseif (str_contains($jenis, 'DEX')) {
+        $harga_non  = 22100;
+        $subs_liter = 0;
+    } else {
+        $harga_non  = (int) $r->input('harga_non', 10000);
+        $subs_liter = (int) $r->input('subs_liter', 0);
+    }
+
+    $harga_jual  = (int) ($harga_non - $subs_liter);      // hasil akhir per liter
+
+    // Jika total_bayar diinputkan dari form, hitung liter dari total_bayar (atau sebaliknya)
+    if ($r->has('total_bayar') && (int)$r->input('total_bayar') > 0) {
+        $total_bayar = (int) $r->input('total_bayar');
+        if ($harga_jual > 0) {
+            $liter = round($total_bayar / $harga_jual, 2);
+        } else {
+            $liter = (float) $r->input('liter', 10.00);
+        }
+    } elseif ($r->has('cash') && (int)$r->input('cash') > 0 && !$r->has('liter')) {
+        $total_bayar = (int) $r->input('cash');
+        if ($harga_jual > 0) {
+            $liter = round($total_bayar / $harga_jual, 2);
+        } else {
+            $liter = (float) $r->input('liter', 10.00);
+        }
+    } else {
+        $liter       = (float) $r->input('liter', 10.00);
+        $total_bayar = (int) round($liter * $harga_jual);
+    }
 
     // TOTAL (otomatis dari liter x harga)
     $total_tanpa = (int) round($liter * $harga_non);
     $total_subs  = (int) round($liter * $subs_liter);
-    $total_bayar = (int) round($liter * $harga_jual);
 
     $cash        = (int) $r->input('cash', $total_bayar);
 
